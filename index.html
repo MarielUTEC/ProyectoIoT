@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1C2B3A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Postura">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Panel de postura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#EEF2F5; --surface:#FFFFFF; --sunk:#E3E9EE; --ink:#1C2B3A; --muted:#5B6B7A; --line:#D3DCE3;
+  --ok:#23806F; --wait:#B87D0E; --alert:#C23B33; --calib:#3C6CCB; --err:#A63E8C; --off:#8794A0;
+  --state:var(--off);
+  --head:"Sora", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --tabs:0px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --bg:#10181F; --surface:#18232D; --sunk:#131D26; --ink:#E6EDF2; --muted:#94A4B2; --line:#2A3946;
+    --ok:#43B6A0; --wait:#E3A93A; --alert:#E2605A; --calib:#7099EB; --err:#D06FB6; --off:#6E7D8A;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+body{-webkit-tap-highlight-color:transparent}
+.app[data-e="calib"]{--state:var(--calib)} .app[data-e="ok"]{--state:var(--ok)}
+.app[data-e="wait"]{--state:var(--wait)} .app[data-e="alert"]{--state:var(--alert)}
+.app[data-e="err"]{--state:var(--err)}
+.app{max-width:1180px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) calc(48px + var(--tabs) + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+h1,h2,h3{font-family:var(--head);margin:0;letter-spacing:-0.01em}
+h2{font-size:1.15rem;font-weight:600}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);padding:9px 16px;font-weight:700;touch-action:manipulation}
+button.primario{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:3px solid var(--calib);outline-offset:2px}
+.num{font-family:var(--head);font-variant-numeric:tabular-nums}
+
+/* barra superior */
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:22px}
+.marca{display:flex;align-items:center;gap:10px;margin-right:auto}
+.marca svg{width:30px;height:30px}
+.marca h1{font-size:1.25rem;font-weight:700}
+.conexion{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.95rem}
+.punto{width:10px;height:10px;border-radius:50%;background:var(--off);flex:none}
+.conexion[data-c="ble"] .punto{background:var(--ok)}
+.conexion[data-c="demo"] .punto{background:var(--calib)}
+.conexion[data-c="conectando"] .punto{background:var(--wait)}
+.botones{display:flex;gap:10px}
+.chip{display:none;align-items:center;gap:7px;font-family:var(--head);font-weight:600;font-size:.9rem;color:var(--state);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 10px}
+.chip::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--state)}
+.sinbt{background:var(--sunk);border-radius:12px;padding:10px 14px;font-size:.92rem;margin:-8px 0 20px;display:none}
+
+/* en vivo */
+.vivo{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:28px;align-items:stretch;margin-bottom:28px}
+.escena{background:var(--surface);border-radius:22px;padding:18px 18px 10px;display:grid;grid-template-columns:1.5fr 1fr;gap:6px;border:1px solid var(--line)}
+.escena figure{margin:0;display:flex;flex-direction:column;align-items:center}
+.escena svg{width:100%;height:auto;max-height:360px}
+.escena figcaption{font-size:.85rem;color:var(--muted);text-align:center}
+.columna{stroke:var(--state);transition:stroke .4s}
+.ghost{stroke:var(--line)}
+.estado{display:flex;flex-direction:column;gap:18px}
+.titular{border-left:6px solid var(--state);padding:4px 0 4px 18px;transition:border-color .4s}
+.titular h2{font-size:clamp(1.7rem,4vw,2.9rem);font-weight:700;line-height:1.08;color:var(--state);transition:color .4s}
+.titular p{margin:8px 0 0;color:var(--muted);max-width:42ch}
+.cuenta{height:8px;border-radius:8px;background:var(--sunk);overflow:hidden;margin-top:12px;visibility:hidden}
+.cuenta i{display:block;height:100%;width:0;background:var(--state)}
+.lecturas{width:100%;border-collapse:collapse;font-size:.98rem}
+.lecturas th{font-weight:400;color:var(--muted);text-align:left;padding:7px 0}
+.lecturas td{text-align:right;padding:7px 0 7px 8px;font-family:var(--head);font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.lecturas tr+tr{border-top:1px solid var(--line)}
+.lecturas tr.clave td,.lecturas tr.clave th{color:var(--ink);font-weight:700}
+.sensores{display:flex;gap:8px 16px;flex-wrap:wrap;font-size:.9rem;color:var(--muted)}
+.sensores span{display:inline-flex;align-items:center;gap:6px}
+.sensores span::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--off)}
+.sensores span.on::before{background:var(--ok)}
+
+/* gráfico */
+.grafico{margin-bottom:30px}
+.grafico header{display:flex;align-items:baseline;gap:8px 16px;flex-wrap:wrap;margin-bottom:8px}
+.leyenda{display:flex;gap:6px 16px;font-size:.9rem;color:var(--muted);flex-wrap:wrap}
+.leyenda span{display:inline-flex;align-items:center;gap:6px}
+.leyenda b{display:inline-block;width:16px;height:3px;border-radius:2px}
+canvas{width:100%;height:210px;display:block;background:var(--surface);border-radius:16px;border:1px solid var(--line);touch-action:pan-y}
+
+/* sesión y ajustes */
+.abajo{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:28px;margin-bottom:30px;align-items:start}
+.metricas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px 18px;margin-top:14px}
+.metrica .v{font-family:var(--head);font-size:1.7rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+.metrica .v small{font-size:.95rem;font-weight:500;color:var(--muted);margin-left:2px}
+.metrica .l{font-size:.9rem;color:var(--muted)}
+.reparto{grid-column:1/-1}
+.barra{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--sunk);margin-top:6px}
+.barra .n{background:var(--ok)} .barra .d{background:var(--alert)}
+.reparto .l{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;margin-top:4px}
+.ajustes{background:var(--sunk);border-radius:18px;padding:18px}
+.ajustes h2{margin-bottom:12px}
+.ajustes h3{font-size:1rem;font-weight:600;margin:22px 0 4px}
+.campo{margin:14px 0}
+.campo label{display:flex;justify-content:space-between;gap:10px;font-size:.95rem}
+.campo input[type=range]{width:100%;accent-color:var(--ink)}
+.interruptores{display:flex;gap:10px 18px;flex-wrap:wrap;margin:10px 0 16px}
+.interruptores label{display:inline-flex;align-items:center;gap:8px}
+.interruptores input{width:18px;height:18px;accent-color:var(--ink)}
+.acciones{display:flex;gap:10px;flex-wrap:wrap}
+.nota{font-size:.88rem;color:var(--muted)}
+
+/* historial */
+.historial h2{margin-bottom:4px}
+.barras{display:flex;align-items:flex-end;gap:8px;height:140px;margin:14px 0 6px;padding-bottom:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.barras div{flex:0 0 34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;font-size:.75rem;color:var(--muted)}
+.barras i{display:block;width:100%;border-radius:6px 6px 2px 2px;background:var(--ok);min-height:2px}
+.tabla-wrap{overflow-x:auto}
+.tabla-ses{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:10px;min-width:440px}
+.tabla-ses th{text-align:left;color:var(--muted);font-weight:400;padding:6px 8px 6px 0}
+.tabla-ses td{padding:6px 8px 6px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+
+/* pestañas (solo celular) */
+.tabs{display:none}
+.aviso{position:fixed;left:50%;bottom:calc(20px + var(--tabs) + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:12px;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .25s;z-index:30}
+.aviso.ver{opacity:1}
+
+/* tablet */
+@media (max-width:980px){
+  .vivo{gap:20px}
+  .abajo{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .vivo{grid-template-columns:1fr}
+  .escena{max-width:640px;width:100%;margin:0 auto}
+}
+
+/* celular */
+@media (max-width:700px){
+  :root{--tabs:64px}
+  .app{padding-top:0}
+  .top{position:sticky;top:0;z-index:20;background:var(--bg);margin:0 -16px 14px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;gap:8px 10px;border-bottom:1px solid var(--line)}
+  .app{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+  .marca h1{font-size:1.05rem}
+  .marca svg{width:24px;height:24px}
+  .chip{display:inline-flex}
+  .conexion{order:3;width:100%;font-size:.85rem}
+  .botones{order:4;width:100%}
+  .botones button{flex:1}
+  .sinbt{margin:0 0 14px}
+  .escena{padding:12px 8px 6px;border-radius:18px}
+  .escena svg{max-height:250px}
+  .titular{padding-left:14px}
+  .metricas{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px}
+  .metrica .v{font-size:1.4rem}
+  canvas{height:180px}
+  .ajustes{padding:16px}
+  .acciones button{flex:1 1 100%}
+  /* una vista a la vez */
+  .app:not([data-v="vivo"]) [data-vista="vivo"],
+  .app:not([data-v="sesion"]) [data-vista="sesion"],
+  .app:not([data-v="ajustes"]) [data-vista="ajustes"],
+  .app:not([data-v="historial"]) [data-vista="historial"]{display:none}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  .tabs button{border:0;border-radius:0;background:none;height:var(--tabs);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.75rem;font-weight:600;color:var(--muted);padding:6px 0}
+  .tabs button svg{width:24px;height:24px}
+  .tabs button[aria-current="page"]{color:var(--ink)}
+  .tabs button[aria-current="page"] svg{stroke:var(--state)}
+}
+@media (max-width:380px){
+  .metricas{grid-template-columns:1fr 1fr}
+  .lecturas{font-size:.9rem}
+}
+/* pantallas táctiles: blancos más grandes */
+@media (pointer:coarse){
+  .top button,.ajustes button{min-height:46px}
+  .campo input[type=range]{height:34px}
+  .interruptores input{width:22px;height:22px}
+  .interruptores label{min-height:40px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app" id="app" data-e="off" data-v="vivo">
+
+  <header class="top">
+    <div class="marca">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 29 Q10 17 16 4" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="16" cy="4" r="3" fill="currentColor"/></svg>
+      <h1>Panel de postura</h1>
+    </div>
+    <span class="chip" id="chip" aria-hidden="true">Sin conexión</span>
+    <div class="conexion" id="conexion" data-c="off"><span class="punto"></span><span id="conexionTxt">Sin conexión</span></div>
+    <div class="botones">
+      <button class="primario" id="btnConectar">Conectar wearable</button>
+      <button id="btnDemo">Ver demo</button>
+    </div>
+  </header>
+  <p class="sinbt" id="sinBT"></p>
+
+  <section class="vivo" data-vista="vivo" aria-label="Postura en vivo">
+    <div class="escena">
+      <figure>
+        <svg viewBox="0 0 260 300" role="img" aria-label="Vista lateral de la espalda">
+          <line x1="70" y1="234" x2="196" y2="234" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
+          <line x1="84" y1="236" x2="84" y2="292" stroke="var(--line)" stroke-width="5" stroke-linecap="round"/>
+          <line x1="182" y1="236" x2="182" y2="292" stroke="var(--line)" stroke-width="5" stroke-linecap="round"/>
+          <path d="M110 222 L186 222 L192 290" fill="none" stroke="var(--muted)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".35"/>
+          <line class="ghost" x1="110" y1="222" x2="110" y2="36" stroke-width="2" stroke-dasharray="5 6"/>
+          <path id="columnaLat" class="columna" d="" fill="none" stroke-width="15" stroke-linecap="round"/>
+          <g id="vertLat"></g>
+          <circle id="cabezaLat" r="19" fill="none" stroke-width="5" class="columna"/>
+          <g id="sensLat" font-family="Sora, sans-serif" font-size="10" font-weight="700"></g>
+        </svg>
+        <figcaption>De perfil: flexión hacia adelante</figcaption>
+      </figure>
+      <figure>
+        <svg viewBox="0 0 160 300" role="img" aria-label="Vista de la espalda">
+          <line class="ghost" x1="80" y1="222" x2="80" y2="36" stroke-width="2" stroke-dasharray="5 6"/>
+          <line x1="52" y1="222" x2="108" y2="222" stroke="var(--muted)" stroke-width="10" stroke-linecap="round" opacity=".35"/>
+          <path id="columnaFro" class="columna" d="" fill="none" stroke-width="13" stroke-linecap="round"/>
+          <line id="hombros" class="columna" stroke-width="9" stroke-linecap="round"/>
+          <circle id="cabezaFro" r="17" fill="none" stroke-width="5" class="columna"/>
+        </svg>
+        <figcaption>De espaldas: inclinación lateral</figcaption>
+      </figure>
+    </div>
+
+    <div class="estado">
+      <div class="titular" aria-live="polite">
+        <h2 id="estadoNombre">Sin conexión</h2>
+        <p id="estadoDetalle">Conecta el wearable por Bluetooth o abre la demo.</p>
+        <div class="cuenta" id="cuenta"><i></i></div>
+      </div>
+      <table class="lecturas" aria-label="Ángulos respecto a la calibración">
+        <tr><th></th><th style="text-align:right">Sagital</th><th style="text-align:right">Frontal</th></tr>
+        <tr><th>IMU torácica</th><td id="vSagT">–</td><td id="vFroT">–</td></tr>
+        <tr><th>IMU lumbar</th><td id="vSagL">–</td><td id="vFroL">–</td></tr>
+        <tr class="clave"><th>Curvatura tórax–lumbar</th><td id="vRelS">–</td><td id="vRelF">–</td></tr>
+        <tr><th>Sensor flex</th><td colspan="2" id="vFlex">–</td></tr>
+      </table>
+      <div class="sensores">
+        <span id="sT">IMU torácica</span><span id="sL">IMU lumbar</span><span id="sF">Flex</span><span id="sB">Sonido</span><span id="sM">Vibración</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="grafico" data-vista="vivo" aria-label="Últimos 60 segundos">
+    <header>
+      <h2>Últimos 60 segundos</h2>
+      <div class="leyenda">
+        <span><b style="background:var(--calib)"></b>Curvatura sagital</span>
+        <span><b style="background:var(--err)"></b>Inclinación lateral</span>
+        <span>Punteado: umbrales</span>
+      </div>
+    </header>
+    <canvas id="grafico" aria-label="Gráfico de desviación en grados"></canvas>
+  </section>
+
+  <div class="abajo">
+    <section data-vista="sesion" aria-label="Sesión actual">
+      <h2>Sesión actual</h2>
+      <div class="metricas">
+        <div class="metrica reparto">
+          <div class="v" id="mNeutra">–</div>
+          <div class="barra"><span class="n" id="bN" style="width:0"></span><span class="d" id="bD" style="width:0"></span></div>
+          <div class="l"><span>del tiempo con postura correcta</span><span id="mTiempos"></span></div>
+        </div>
+        <div class="metrica"><div class="v num" id="mDur">0:00</div><div class="l">Duración</div></div>
+        <div class="metrica"><div class="v num" id="mAlertas">0</div><div class="l">Alertas</div></div>
+        <div class="metrica"><div class="v num" id="mAlertasH">–</div><div class="l">Alertas por hora</div></div>
+        <div class="metrica"><div class="v num" id="mDurMedia">–</div><div class="l">Duración media de una desviación sostenida</div></div>
+        <div class="metrica"><div class="v num" id="mDurMax">–</div><div class="l">Desviación sostenida más larga</div></div>
+        <div class="metrica"><div class="v num" id="mBreves">0</div><div class="l">Movimientos breves ignorados</div></div>
+        <div class="metrica"><div class="v num" id="mAngS">–</div><div class="l">Curvatura sagital media / máxima</div></div>
+        <div class="metrica"><div class="v num" id="mAngF">–</div><div class="l">Inclinación lateral media / máxima</div></div>
+        <div class="metrica"><div class="v num" id="mPkt">–</div><div class="l">Paquetes BLE recibidos</div></div>
+      </div>
+    </section>
+
+    <section class="ajustes" data-vista="ajustes" aria-label="Ajustes">
+      <h2>Ajustes del wearable</h2>
+      <button class="primario" id="btnCalibrar" disabled>Calibrar postura</button>
+      <p class="nota">Siéntate recto y quieto: la calibración dura 5 segundos.</p>
+      <div class="campo">
+        <label for="rTbad"><span>Tiempo antes de alertar</span><span class="num" id="oTbad">15 s</span></label>
+        <input type="range" id="rTbad" min="3" max="60" value="15">
+      </div>
+      <div class="campo">
+        <label for="rSag"><span>Umbral de curvatura sagital</span><span class="num" id="oSag">15°</span></label>
+        <input type="range" id="rSag" min="5" max="40" value="15">
+      </div>
+      <div class="campo">
+        <label for="rFro"><span>Umbral de inclinación lateral</span><span class="num" id="oFro">10°</span></label>
+        <input type="range" id="rFro" min="5" max="30" value="10">
+      </div>
+      <div class="interruptores">
+        <label><input type="checkbox" id="cSonido" checked> Sonido</label>
+        <label><input type="checkbox" id="cVib" checked> Vibración</label>
+      </div>
+      <h3>En este dispositivo</h3>
+      <div class="interruptores">
+        <label id="lVibCel" hidden><input type="checkbox" id="cVibCel"> Vibrar también este celular en las alertas</label>
+        <label id="lPantalla" hidden><input type="checkbox" id="cPantalla" checked> Mantener la pantalla encendida</label>
+        <label><input type="checkbox" id="cInv"> Invertir sentido de la figura</label>
+      </div>
+      <div class="acciones">
+        <button id="btnNueva">Guardar y empezar otra sesión</button>
+        <button id="btnCSV">Exportar CSV</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="historial" data-vista="historial" aria-label="Sesiones anteriores">
+    <h2>Sesiones anteriores</h2>
+    <p class="nota">Porcentaje del tiempo con postura correcta en cada sesión guardada en este dispositivo.</p>
+    <div class="barras" id="barras"></div>
+    <div class="tabla-wrap"><table class="tabla-ses"><thead><tr><th>Fecha</th><th>Duración</th><th>Postura correcta</th><th>Alertas</th><th>Alertas/h</th></tr></thead><tbody id="tablaSes"></tbody></table></div>
+  </section>
+</div>
+
+<nav class="tabs" aria-label="Secciones">
+  <button data-ir="vivo" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21 Q8 13 12 5"/><circle cx="12" cy="3.5" r="1.5"/></svg>En vivo</button>
+  <button data-ir="sesion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Sesión</button>
+  <button data-ir="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Ajustes</button>
+  <button data-ir="historial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Historial</button>
+</nav>
+<div class="aviso" id="aviso" role="status"></div>
+
+<script>
+// ===== Protocolo BLE (igual que en postura_ble.ino) =====
+const UUID = {
+  svc:  '6e7f0001-8b3a-4c2d-9f10-5a7e2d1c0b01',
+  est:  '6e7f0002-8b3a-4c2d-9f10-5a7e2d1c0b01',
+  ang:  '6e7f0003-8b3a-4c2d-9f10-5a7e2d1c0b01',
+  cont: '6e7f0004-8b3a-4c2d-9f10-5a7e2d1c0b01',
+  cmd:  '6e7f0005-8b3a-4c2d-9f10-5a7e2d1c0b01'
+};
+const ESTADOS = {
+  '-1': {n:'Sin conexión', d:'Conecta el wearable por Bluetooth o abre la demo.', c:'off', corto:'Sin conexión'},
+  '0':  {n:'Calibrando', d:'Siéntate recto y quédate quieto 5 segundos.', c:'calib', corto:'Calibrando'},
+  '1':  {n:'Postura correcta', d:'Tu espalda está dentro del rango calibrado.', c:'ok', corto:'Correcta'},
+  '2':  {n:'Te estás encorvando', d:'', c:'wait', corto:'Encorvado'},
+  '3':  {n:'Corrige tu postura', d:'Endereza la espalda 3 segundos para apagar la alerta.', c:'alert', corto:'Alerta'},
+  '4':  {n:'Un sensor no responde', d:'Revisa los cables VCC, GND, SDA y SCL de las IMU.', c:'err', corto:'Error IMU'}
+};
+const $ = s => document.querySelector(s);
+const S = {
+  modo:null, estado:-1, flags:0, tbad:15, thS:15, thF:10, entrada:Date.now(), invertir:false,
+  ang:{sagT:0,sagL:0,froT:0,froL:0,relS:0,relF:0,flex:0},
+  pkt:{last:null, esperados:0, recibidos:0}, fw:null
+};
+const ble = {dev:null, cmd:null, cola:Promise.resolve()};
+const grafico = [];
+let ses = nuevaSesion();
+
+function nuevaSesion(){
+  return {inicio:Date.now(), tNeutra:0, tDesv:0, alertas:0, breves:0, episodios:[], epInicio:null, epAlerta:false,
+          sumS:0, sumF:0, n:0, maxS:0, maxF:0, muestras:[], ultT:null};
+}
+
+// ===== utilidades =====
+let tAviso;
+function aviso(txt){ const a=$('#aviso'); a.textContent=txt; a.classList.add('ver'); clearTimeout(tAviso); tAviso=setTimeout(()=>a.classList.remove('ver'),3500); }
+function fmtDur(seg){ seg=Math.round(seg); const h=Math.floor(seg/3600), m=Math.floor(seg%3600/60), s=seg%60;
+  return h? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`; }
+function grados(v){ return (v>0?'+':'')+v.toFixed(1)+'°'; }
+
+function setConexion(c, nombre){
+  $('#conexion').dataset.c = c||'off';
+  $('#conexionTxt').textContent = c==='ble' ? `Conectado a ${nombre}` : c==='demo' ? 'Demo con datos simulados'
+    : c==='conectando' ? 'Conectando…' : 'Sin conexión';
+  $('#btnConectar').textContent = c==='ble' ? 'Desconectar' : (ble.dev && c!=='demo' ? 'Reconectar' : 'Conectar wearable');
+  $('#btnDemo').textContent = c==='demo' ? 'Detener demo' : 'Ver demo';
+  $('#btnCalibrar').disabled = !(c==='ble' || c==='demo');
+  pantallaEncendida();
+}
+
+// ===== vistas (celular) =====
+function irA(v){
+  $('#app').dataset.v=v;
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-current', b.dataset.ir===v?'page':'false'));
+  window.scrollTo({top:0});
+  if (v==='vivo') pedirDibujo();
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>irA(b.dataset.ir)));
+
+// ===== estado y métricas =====
+function aplicarEstado(o){
+  S.flags=o.flags; S.tbad=o.tbad; S.thS=o.thS; S.thF=o.thF;
+  if (o.estado!==S.estado){
+    S.entrada = Date.now() - (o.seg||0)*1000;
+    transicion(S.estado, o.estado);
+    S.estado = o.estado;
+  }
+  sincronizarControles();
+  pintarEstado();
+}
+function transicion(prev, e){
+  const ahora=Date.now();
+  if (prev===1 && (e===2||e===3)){ ses.epInicio=ahora; ses.epAlerta=false; }
+  if (e===3 && prev!==3){ ses.alertas++; ses.epAlerta=true; if(ses.epInicio===null) ses.epInicio=ahora; }
+  if (e===1 && ses.epInicio!==null){
+    if (ses.epAlerta) ses.episodios.push((ahora-ses.epInicio)/1000); else ses.breves++;
+    ses.epInicio=null; ses.epAlerta=false;
+  }
+  if (e===0 || e===4 || e===-1){ ses.epInicio=null; ses.epAlerta=false; }
+  vibrarCelular(e===3);
+}
+function registrarMuestra(a){
+  const ahora=Date.now();
+  if (ses.ultT!==null){
+    const dt=Math.min(ahora-ses.ultT,1000);
+    if (S.estado===1) ses.tNeutra+=dt; else if (S.estado===2||S.estado===3) ses.tDesv+=dt;
+  }
+  ses.ultT=ahora;
+  S.ang=a;
+  if (S.estado>=1 && S.estado<=3){
+    const s=Math.abs(a.relS), f=Math.abs(a.relF);
+    ses.sumS+=s; ses.sumF+=f; ses.n++; ses.maxS=Math.max(ses.maxS,s); ses.maxF=Math.max(ses.maxF,f);
+  }
+  if (ses.muestras.length<250000) ses.muestras.push([ahora,S.estado,a.sagT,a.sagL,a.froT,a.froL,a.relS,a.relF,a.flex]);
+  grafico.push({t:ahora, s:Math.abs(a.relS), f:Math.abs(a.relF), e:S.estado});
+  while (grafico.length && grafico[0].t < ahora-61000) grafico.shift();
+  pintarLecturas(); pintarFiguras(); pedirDibujo();
+}
+function contarPaquete(seq){
+  const p=S.pkt;
+  if (p.last===null){ p.last=seq; p.esperados=1; p.recibidos=1; return; }
+  const d=(seq-p.last+65536)%65536;
+  if (d===0 || d>5000){ p.last=seq; return; }
+  p.esperados+=d; p.recibidos++; p.last=seq;
+}
+
+// ===== pintado =====
+function pintarEstado(){
+  const info=ESTADOS[String(S.estado)];
+  $('#app').dataset.e=info.c;
+  $('#estadoNombre').textContent=info.n;
+  $('#chip').textContent=info.corto;
+  let det=info.d;
+  const enEstado=(Date.now()-S.entrada)/1000;
+  const cuenta=$('#cuenta');
+  if (S.estado===2){
+    const resta=Math.max(0,S.tbad-enEstado);
+    det=`Si no corriges, la alerta suena en ${Math.ceil(resta)} s.`;
+    cuenta.style.visibility='visible'; cuenta.firstElementChild.style.width=Math.min(100,enEstado/S.tbad*100)+'%';
+  } else if (S.estado===0){
+    cuenta.style.visibility='visible'; cuenta.firstElementChild.style.width=Math.min(100,enEstado/5*100)+'%';
+  } else { cuenta.style.visibility='hidden'; }
+  if (S.estado===3) det=`Alerta ${ses.alertas} de esta sesión. `+info.d;
+  $('#estadoDetalle').textContent=det;
+  const f=S.flags, activo=S.modo!==null, on=(id,b)=>$(id).classList.toggle('on',!!b);
+  on('#sT',activo&&f&1); on('#sL',activo&&f&2); on('#sF',activo&&f&4); on('#sB',activo&&f&8); on('#sM',activo&&f&16);
+}
+function pintarLecturas(){
+  const a=S.ang;
+  $('#vSagT').textContent=grados(a.sagT); $('#vFroT').textContent=grados(a.froT);
+  $('#vSagL').textContent=grados(a.sagL); $('#vFroL').textContent=grados(a.froL);
+  $('#vRelS').textContent=grados(a.relS); $('#vRelF').textContent=grados(a.relF);
+  $('#vFlex').textContent = (S.flags&4) ? (a.flex>0?'+':'')+a.flex.toFixed(1)+' % de resistencia' : 'sin flex';
+}
+function pintarMetricas(){
+  const total=ses.tNeutra+ses.tDesv, dur=(Date.now()-ses.inicio)/1000;
+  const pn= total>0 ? ses.tNeutra/total*100 : null;
+  $('#mNeutra').innerHTML = pn===null ? '–' : `${pn.toFixed(0)}<small>%</small>`;
+  $('#bN').style.width=(pn===null?0:pn)+'%'; $('#bD').style.width=(pn===null?0:100-pn)+'%';
+  $('#mTiempos').textContent = total>0 ? `${fmtDur(ses.tNeutra/1000)} correcta, ${fmtDur(ses.tDesv/1000)} desviada` : '';
+  $('#mDur').textContent=fmtDur(dur);
+  $('#mAlertas').textContent=ses.alertas;
+  $('#mAlertasH').textContent= total>60000 ? (ses.alertas/(total/3600000)).toFixed(1) : '–';
+  const ep=ses.episodios;
+  $('#mDurMedia').textContent= ep.length ? fmtDur(ep.reduce((x,y)=>x+y,0)/ep.length) : '–';
+  $('#mDurMax').textContent= ep.length ? fmtDur(Math.max(...ep)) : '–';
+  $('#mBreves').textContent=ses.breves;
+  $('#mAngS').textContent= ses.n ? `${(ses.sumS/ses.n).toFixed(1)}° / ${ses.maxS.toFixed(1)}°` : '–';
+  $('#mAngF').textContent= ses.n ? `${(ses.sumF/ses.n).toFixed(1)}° / ${ses.maxF.toFixed(1)}°` : '–';
+  const p=S.pkt;
+  $('#mPkt').textContent= p.esperados ? (p.recibidos/p.esperados*100).toFixed(1)+' %' : '–';
+}
+
+// figuras
+const rot=(len,a)=>[Math.sin(a*Math.PI/180)*len, -Math.cos(a*Math.PI/180)*len];
+const lim=v=>Math.max(-70,Math.min(70,v));
+function quad(p0,p1,p2,t){ const u=1-t; return [u*u*p0[0]+2*u*t*p1[0]+t*t*p2[0], u*u*p0[1]+2*u*t*p1[1]+t*t*p2[1]]; }
+function pintarFiguras(){
+  const k=S.invertir?-1:1, a=S.ang;
+  const P0=[110,222], dL=rot(82,lim(k*a.sagL)), P1=[P0[0]+dL[0],P0[1]+dL[1]];
+  const dT=rot(96,lim(k*a.sagT)), P2=[P1[0]+dT[0],P1[1]+dT[1]];
+  const c1=[P1[0]*2-(P0[0]+P2[0])/2, P1[1]*2-(P0[1]+P2[1])/2];
+  $('#columnaLat').setAttribute('d',`M${P0} Q${c1} ${P2}`);
+  const h=rot(30,lim(k*a.sagT)); $('#cabezaLat').setAttribute('cx',P2[0]+h[0]); $('#cabezaLat').setAttribute('cy',P2[1]+h[1]);
+  let v=''; for(let i=1;i<=9;i++){ const q=quad(P0,c1,P2,i/10); v+=`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="3.2" fill="var(--surface)"/>`; }
+  $('#vertLat').innerHTML=v;
+  const sl=quad(P0,c1,P2,.12), st=quad(P0,c1,P2,.8), sf=quad(P0,c1,P2,.42);
+  $('#sensLat').innerHTML=
+    `<rect x="${sl[0]-24}" y="${sl[1]-8}" width="16" height="16" rx="3" fill="var(--ink)"/><text x="${sl[0]-16}" y="${sl[1]+4}" fill="var(--bg)" text-anchor="middle">L</text>`+
+    `<rect x="${st[0]-24}" y="${st[1]-8}" width="16" height="16" rx="3" fill="var(--ink)"/><text x="${st[0]-16}" y="${st[1]+4}" fill="var(--bg)" text-anchor="middle">T</text>`+
+    ((S.flags&4)?`<rect x="${sf[0]-21}" y="${sf[1]-18}" width="7" height="36" rx="3" fill="var(--muted)" opacity=".7"/>`:'');
+  const F0=[80,222], fL=rot(76,lim(a.froL)), F1=[F0[0]+fL[0],F0[1]+fL[1]];
+  const fT=rot(92,lim(a.froT)), F2=[F1[0]+fT[0],F1[1]+fT[1]];
+  const fc=[F1[0]*2-(F0[0]+F2[0])/2, F1[1]*2-(F0[1]+F2[1])/2];
+  $('#columnaFro').setAttribute('d',`M${F0} Q${fc} ${F2}`);
+  const ang=lim(a.froT)*Math.PI/180, hx=Math.cos(ang)*40, hy=Math.sin(ang)*40;
+  const H=$('#hombros'); H.setAttribute('x1',F2[0]-hx); H.setAttribute('y1',F2[1]-hy); H.setAttribute('x2',F2[0]+hx); H.setAttribute('y2',F2[1]+hy);
+  const cf=rot(30,lim(a.froT)); $('#cabezaFro').setAttribute('cx',F2[0]+cf[0]); $('#cabezaFro').setAttribute('cy',F2[1]+cf[1]);
+}
+
+// gráfico
+let dibujoPendiente=false;
+function pedirDibujo(){ if(!dibujoPendiente){ dibujoPendiente=true; requestAnimationFrame(()=>{dibujoPendiente=false; dibujar();}); } }
+function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function dibujar(){
+  const cv=$('#grafico'), r=cv.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+  if (!r.width) return;
+  if (cv.width!==Math.round(r.width*dpr) || cv.height!==Math.round(r.height*dpr)){ cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr); }
+  const g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0);
+  const W=r.width, Hh=r.height, pl=34, pr=10, pt=12, pb=22, ahora=Date.now();
+  g.clearRect(0,0,W,Hh);
+  let ymax=Math.max(30,S.thS+10,S.thF+10); for(const p of grafico) ymax=Math.max(ymax,p.s,p.f); ymax=Math.min(90,Math.ceil(ymax/10)*10);
+  const X=t=>pl+(t-(ahora-60000))/60000*(W-pl-pr), Y=v=>Hh-pb-v/ymax*(Hh-pt-pb);
+  for(let i=0;i<grafico.length-1;i++){ const p=grafico[i]; if(p.e===2||p.e===3){ g.fillStyle=css(p.e===3?'--alert':'--wait'); g.globalAlpha=.13; g.fillRect(X(p.t),pt,Math.max(1,X(grafico[i+1].t)-X(p.t)),Hh-pt-pb); } }
+  g.globalAlpha=1;
+  g.strokeStyle=css('--line'); g.fillStyle=css('--muted'); g.lineWidth=1; g.font='11px Sora, sans-serif'; g.textAlign='right';
+  const paso = Hh<200 && ymax>40 ? 20 : 10;
+  for(let v=0; v<=ymax; v+=paso){ g.beginPath(); g.moveTo(pl,Y(v)); g.lineTo(W-pr,Y(v)); g.stroke(); g.fillText(v+'°',pl-6,Y(v)+4); }
+  g.textAlign='left'; g.fillText('hace 60 s',pl,Hh-6); g.textAlign='right'; g.fillText('ahora',W-pr,Hh-6);
+  g.setLineDash([6,5]); g.lineWidth=1.5;
+  g.strokeStyle=css('--calib'); g.beginPath(); g.moveTo(pl,Y(S.thS)); g.lineTo(W-pr,Y(S.thS)); g.stroke();
+  g.strokeStyle=css('--err'); g.beginPath(); g.moveTo(pl,Y(S.thF)); g.lineTo(W-pr,Y(S.thF)); g.stroke();
+  g.setLineDash([]); g.lineWidth=2.4; g.lineJoin='round';
+  for (const [k,col] of [['f','--err'],['s','--calib']]){
+    g.strokeStyle=css(col); g.beginPath(); let empez=false;
+    for(const p of grafico){ if(p.e<1||p.e>3){ empez=false; continue; } const x=X(p.t), y=Y(Math.min(p[k],ymax)); if(!empez){g.moveTo(x,y); empez=true;} else g.lineTo(x,y); }
+    g.stroke();
+  }
+}
+
+// ===== funciones del celular: vibración y pantalla encendida =====
+let tVibCel=null;
+if ('vibrate' in navigator) $('#lVibCel').hidden=false;
+function vibrarCelular(on){
+  clearInterval(tVibCel); tVibCel=null;
+  if (!on || !$('#cVibCel').checked || !('vibrate' in navigator)) { if('vibrate' in navigator) navigator.vibrate(0); return; }
+  const patron=()=>navigator.vibrate([250,250,250,250,250]);
+  patron(); tVibCel=setInterval(patron,3500);
+}
+let wake=null;
+if ('wakeLock' in navigator) $('#lPantalla').hidden=false;
+async function pantallaEncendida(){
+  if (!('wakeLock' in navigator)) return;
+  const quiero = S.modo!==null && $('#cPantalla').checked && document.visibilityState==='visible';
+  try{
+    if (quiero && !wake){ wake=await navigator.wakeLock.request('screen'); wake.addEventListener('release',()=>{wake=null;}); }
+    else if (!quiero && wake){ await wake.release(); wake=null; }
+  }catch(e){ wake=null; }
+}
+document.addEventListener('visibilitychange',pantallaEncendida);
+$('#cPantalla').addEventListener('change',pantallaEncendida);
+
+// ===== controles =====
+function sincronizarControles(){
+  const set=(id,v,out,suf)=>{ const el=$(id); if(document.activeElement!==el){ el.value=v; $(out).textContent=v+suf; } };
+  set('#rTbad',S.tbad,'#oTbad',' s'); set('#rSag',S.thS,'#oSag','°'); set('#rFro',S.thF,'#oFro','°');
+  if (S.modo){ $('#cSonido').checked=!!(S.flags&8); $('#cVib').checked=!!(S.flags&16); }
+}
+function enviar(cmd){
+  if (S.modo==='demo'){ sim.comando(cmd); return; }
+  if (S.modo!=='ble' || !ble.cmd){ aviso('Conecta el wearable para cambiar sus ajustes.'); return; }
+  const datos=new TextEncoder().encode(cmd);
+  ble.cola = ble.cola.then(()=> ble.cmd.writeValueWithResponse ? ble.cmd.writeValueWithResponse(datos) : ble.cmd.writeValue(datos))
+    .catch(e=>aviso('No se pudo enviar el ajuste: '+e.message));
+}
+function slider(id,out,suf,letra){
+  $(id).addEventListener('input',e=>$(out).textContent=e.target.value+suf);
+  $(id).addEventListener('change',e=>enviar(letra+e.target.value));
+}
+slider('#rTbad','#oTbad',' s','t'); slider('#rSag','#oSag','°','p'); slider('#rFro','#oFro','°','f');
+$('#cSonido').addEventListener('change',e=>enviar(e.target.checked?'b1':'b0'));
+$('#cVib').addEventListener('change',e=>enviar(e.target.checked?'m1':'m0'));
+$('#cInv').addEventListener('change',e=>{ S.invertir=e.target.checked; pintarFiguras(); });
+$('#cVibCel').addEventListener('change',()=>vibrarCelular(S.estado===3));
+$('#btnCalibrar').addEventListener('click',()=>{ enviar('c'); if (window.matchMedia('(max-width:700px)').matches) irA('vivo'); });
+$('#btnNueva').addEventListener('click',()=>{
+  const ok=guardarSesion(); ses=nuevaSesion(); grafico.length=0; S.pkt={last:null,esperados:0,recibidos:0};
+  if (S.modo) enviar('r');
+  pintarMetricas(); pintarHistorial(); pedirDibujo();
+  aviso(ok?'Sesión guardada. Empezó una nueva.':'Empezó una nueva sesión. La anterior duró menos de 30 s y no se guardó.');
+});
+$('#btnCSV').addEventListener('click',exportarCSV);
+
+function exportarCSV(){
+  if (!ses.muestras.length){ aviso('Todavía no hay datos en esta sesión.'); return; }
+  const t0=ses.muestras[0][0];
+  const filas=ses.muestras.map(m=>[new Date(m[0]).toISOString(),((m[0]-t0)/1000).toFixed(2),m[1],...m.slice(2).map(v=>v.toFixed(1))].join(','));
+  const cab='fecha_hora,t_s,estado,sag_torax,sag_lumbar,fro_torax,fro_lumbar,rel_sagital,rel_frontal,flex_pct';
+  const nota='# estado: 0 calibrando, 1 correcta, 2 contando, 3 alerta, 4 error IMU';
+  const blob=new Blob([nota+'\n'+cab+'\n'+filas.join('\n')],{type:'text/csv'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=`postura_${new Date(ses.inicio).toISOString().slice(0,16).replace(/[:T]/g,'-')}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
+// ===== historial (en el dispositivo) =====
+const CLAVE='postura.sesiones';
+function leerHist(){ try{ return JSON.parse(localStorage.getItem(CLAVE)||'[]'); }catch(e){ return []; } }
+function guardarSesion(){
+  const total=ses.tNeutra+ses.tDesv;
+  if (total<30000) return false;
+  const h=leerHist();
+  h.push({f:ses.inicio, dur:total/1000, neutra:ses.tNeutra/total*100, alertas:ses.alertas, porHora:ses.alertas/(total/3600000), media:ses.n?ses.sumS/ses.n:0});
+  try{ localStorage.setItem(CLAVE, JSON.stringify(h.slice(-30))); }catch(e){ return false; }
+  return true;
+}
+function pintarHistorial(){
+  const h=leerHist();
+  if (!h.length){ $('#barras').innerHTML='<p class="nota" style="align-self:center">Aún no hay sesiones guardadas. Al terminar una, usa “Guardar y empezar otra sesión”.</p>'; $('#tablaSes').innerHTML=''; $('.tabla-wrap').style.display='none'; return; }
+  $('.tabla-wrap').style.display='';
+  $('#barras').innerHTML=h.map(s=>{ const d=new Date(s.f); return `<div title="${d.toLocaleString()}: ${s.neutra.toFixed(0)} % correcta"><span>${s.neutra.toFixed(0)}</span><i style="height:${s.neutra*0.95}%"></i><span>${d.getDate()}/${d.getMonth()+1}</span></div>`; }).join('');
+  $('#tablaSes').innerHTML=h.slice(-6).reverse().map(s=>`<tr><td>${new Date(s.f).toLocaleString([], {dateStyle:'short',timeStyle:'short'})}</td><td>${fmtDur(s.dur)}</td><td>${s.neutra.toFixed(0)} %</td><td>${s.alertas}</td><td>${s.porHora.toFixed(1)}</td></tr>`).join('');
+}
+// en el celular "beforeunload" casi nunca se dispara; "pagehide" sí
+window.addEventListener('pagehide',()=>guardarSesion());
+
+// ===== Bluetooth =====
+function leerEstadoDV(dv){
+  aplicarEstado({estado:dv.getUint8(0), flags:dv.getUint8(1), seg:dv.getUint16(4,true), tbad:dv.getUint16(6,true),
+                 thS:dv.byteLength>=10?dv.getUint8(8):S.thS, thF:dv.byteLength>=10?dv.getUint8(9):S.thF});
+}
+function leerAngulosDV(dv){
+  contarPaquete(dv.getUint16(0,true));
+  const v=i=>dv.getInt16(i,true)/10;
+  registrarMuestra({sagT:v(2),sagL:v(4),froT:v(6),froL:v(8),relS:v(10),relF:v(12),flex:v(14)});
+}
+function leerContadoresDV(dv){ S.fw={eventos:dv.getUint16(2,true), sesion:dv.getUint32(4,true)}; }
+async function configurar(dev){
+  const srv=await dev.gatt.connect();
+  const svc=await srv.getPrimaryService(UUID.svc);
+  const cE=await svc.getCharacteristic(UUID.est), cA=await svc.getCharacteristic(UUID.ang);
+  const cC=await svc.getCharacteristic(UUID.cont); ble.cmd=await svc.getCharacteristic(UUID.cmd);
+  cE.addEventListener('characteristicvaluechanged',e=>leerEstadoDV(e.target.value));
+  cA.addEventListener('characteristicvaluechanged',e=>leerAngulosDV(e.target.value));
+  cC.addEventListener('characteristicvaluechanged',e=>leerContadoresDV(e.target.value));
+  await cE.startNotifications(); await cA.startNotifications(); await cC.startNotifications();
+  S.modo='ble'; S.pkt={last:null,esperados:0,recibidos:0};
+  leerEstadoDV(await cE.readValue());
+  setConexion('ble', dev.name||'Postura');
+}
+async function conectar(){
+  if (S.modo==='ble'){ ble.dev.gatt.disconnect(); return; }
+  detenerDemo();
+  try{
+    setConexion('conectando');
+    if (!ble.dev){
+      ble.dev=await navigator.bluetooth.requestDevice({filters:[{services:[UUID.svc]},{namePrefix:'Postura'}], optionalServices:[UUID.svc]});
+      ble.dev.addEventListener('gattserverdisconnected',alDesconectar);
+    }
+    await configurar(ble.dev);
+  }catch(e){
+    setConexion(null);
+    if (e.name!=='NotFoundError') aviso('No se pudo conectar: '+e.message);
+  }
+}
+function alDesconectar(){
+  if (S.modo!=='ble') return;
+  S.modo=null; ble.cmd=null; aplicarEstado({estado:-1,flags:0,tbad:S.tbad,thS:S.thS,thF:S.thF});
+  setConexion(null); aviso('Se perdió la conexión con el wearable. Toca “Reconectar”.');
+}
+$('#btnConectar').addEventListener('click',conectar);
+
+if (!navigator.bluetooth){
+  const sb=$('#sinBT'); sb.style.display='block';
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  sb.textContent = !window.isSecureContext
+    ? 'Bluetooth web solo funciona en https o en http://localhost. Publica el panel en GitHub Pages o sirve la carpeta con “python -m http.server”.'
+    : ios ? 'En iPhone y iPad Safari no permite Bluetooth web. Abre este mismo enlace en la app Bluefy (gratis) o usa un celular Android o una laptop. La demo sí funciona aquí.'
+    : 'Este navegador no permite Bluetooth web. Usa Chrome o Edge en Android, Windows o macOS. La demo funciona en cualquier navegador.';
+  $('#btnConectar').disabled=true;
+}
+
+// ===== Demo: simula el wearable con las mismas reglas del firmware =====
+const sim={timer:null};
+function iniciarDemo(){
+  if (S.modo==='ble') ble.dev.gatt.disconnect();
+  Object.assign(sim,{seq:0, est:0, tEst:Date.now(), tDesv:0, tOk:0, tbad:S.tbad||15, thS:S.thS||15, thF:S.thF||10,
+    son:true, vib:true, escena:'neutra', hasta:Date.now()+12000, obj:{sagT:0,sagL:0,froT:0,froL:0,flex:0}, cur:{sagT:0,sagL:0,froT:0,froL:0,flex:0}});
+  S.modo='demo'; S.pkt={last:null,esperados:0,recibidos:0};
+  setConexion('demo'); emitirEstado();
+  sim.timer=setInterval(pasoDemo,200);
+}
+function detenerDemo(){
+  if (!sim.timer) return;
+  clearInterval(sim.timer); sim.timer=null; S.modo=null;
+  aplicarEstado({estado:-1,flags:0,tbad:S.tbad,thS:S.thS,thF:S.thF}); setConexion(null);
+}
+function emitirEstado(){
+  aplicarEstado({estado:sim.est, flags:1|2|4|(sim.son?8:0)|(sim.vib?16:0), seg:(Date.now()-sim.tEst)/1000, tbad:sim.tbad, thS:sim.thS, thF:sim.thF});
+}
+function cambiarSim(e){ sim.est=e; sim.tEst=Date.now(); emitirEstado(); }
+function nuevaEscena(ahora){
+  const azar=Math.random(), r=(a,b)=>a+Math.random()*(b-a);
+  let e='neutra', dur=r(8,18), o={sagT:0,sagL:0,froT:0,froL:0,flex:0};
+  if (sim.escena==='neutra'){
+    if (azar<.35){ e='encorvado'; dur=r(8,32); o={sagT:r(20,28),sagL:r(3,7),froT:r(-2,2),froL:0,flex:r(22,35)}; }
+    else if (azar<.6){ e='alcanzar'; dur=r(2,4); o={sagT:r(22,30),sagL:r(19,27),froT:0,froL:0,flex:r(0,4)}; }
+    else if (azar<.8){ e='lateral'; dur=r(8,26); const lado=Math.random()<.5?-1:1; o={sagT:r(2,5),sagL:1,froT:r(13,18)*lado,froL:r(-2,2),flex:r(0,3)}; }
+    else { dur=r(6,12); }
+  }
+  sim.escena=e; sim.hasta=ahora+dur*1000; sim.obj=o;
+}
+function pasoDemo(){
+  const ahora=Date.now(), c=sim.cur, o=sim.obj;
+  if (sim.est===0){
+    for (const k in c) c[k]*=.6;
+    if (ahora-sim.tEst>=5000) cambiarSim(1);
+  } else {
+    if (ahora>=sim.hasta) nuevaEscena(ahora);
+    for (const k in c){ c[k]+= (o[k]-c[k])*0.18 + (Math.random()-.5)*0.5; }
+    c.sagT+=Math.sin(ahora/700)*0.12;
+  }
+  const relS=c.sagT-c.sagL, relF=c.froT-c.froL;
+  const dTS=Math.abs(c.sagT), dTF=Math.abs(c.froT), dRS=Math.abs(relS), dRF=Math.abs(relF);
+  const desv=salir=>{ const m=salir?3:0, mf=salir?5:0;
+    const sag=dRS>sim.thS-m && (c.flex>15-mf || dTS>sim.thS-m); const fro=dRF>sim.thF-m && dTF>sim.thF-m; return sag||fro; };
+  if (sim.est===1 && desv(false)){ sim.tDesv=ahora; cambiarSim(2); }
+  else if (sim.est===2){ if(!desv(true)) cambiarSim(1); else if (ahora-sim.tDesv>=sim.tbad*1000){ sim.tOk=0; cambiarSim(3); } }
+  else if (sim.est===3){ if (desv(true)) sim.tOk=0; else if(!sim.tOk) sim.tOk=ahora; else if(ahora-sim.tOk>=3000) cambiarSim(1); }
+  contarPaquete(sim.seq++ % 65536);
+  registrarMuestra({sagT:c.sagT,sagL:c.sagL,froT:c.froT,froL:c.froL,relS,relF,flex:c.flex});
+}
+sim.comando=function(cmd){
+  const l=cmd[0], v=parseFloat(cmd.slice(1));
+  if (l==='c'){ sim.escena='neutra'; sim.hasta=Date.now()+15000; sim.obj={sagT:0,sagL:0,froT:0,froL:0,flex:0}; cambiarSim(0); return; }
+  if (l==='t') sim.tbad=v;
+  if (l==='p') sim.thS=v;
+  if (l==='f') sim.thF=v;
+  if (l==='b') sim.son=v===1;
+  if (l==='m') sim.vib=v===1;
+  emitirEstado();
+};
+$('#btnDemo').addEventListener('click',()=> sim.timer ? detenerDemo() : iniciarDemo());
+
+// ===== refresco y app instalable =====
+setInterval(()=>{ pintarEstado(); pintarMetricas(); pedirDibujo(); },500);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',pedirDibujo);
+window.addEventListener('resize',pedirDibujo);
+if ('serviceWorker' in navigator && window.isSecureContext && location.protocol!=='file:'){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+pintarFiguras(); pintarEstado(); pintarMetricas(); pintarHistorial(); sincronizarControles(); setConexion(null);
+</script>
+</body>
+</html>
